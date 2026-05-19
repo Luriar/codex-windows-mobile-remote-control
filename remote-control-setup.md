@@ -122,17 +122,16 @@ Error: codex app-server daemon lifecycle is only supported on Unix platforms
 - Codex Desktop을 완전히 종료 후 다시 실행한다.
 - ChatGPT 모바일 앱에서 Codex를 열고 연결 승인 화면이 뜨는지 확인한다.
 
-## 원클릭 실행 파일
+## 실행 파일
 
 이 폴더에 일반 사용자가 더블클릭할 수 있는 실행 파일을 추가했다.
 
 - `Enable-CodexMobileRemote.cmd`
-- `Enable-CodexMobileRemote-OneClick.cmd`
 - `Enable-CodexMobileRemote.ps1`
 
-일반 사용자는 `Enable-CodexMobileRemote.cmd`를 더블클릭하면 된다. 이 버전은 Codex Desktop 재시작 전에 확인 질문을 띄운다.
+일반 사용자는 `Enable-CodexMobileRemote.cmd`를 더블클릭하면 된다. 이 파일은 실제 작업을 하는 `Enable-CodexMobileRemote.ps1`을 실행한다.
 
-완전 원클릭으로 처리하려면 `Enable-CodexMobileRemote-OneClick.cmd`를 더블클릭하면 된다. 이 버전은 확인 질문 없이 Codex Desktop을 종료하고 다시 실행한다.
+Codex Desktop 재시작 전에는 확인 질문을 띄운다. 작업 중인 사용자가 실수로 앱을 종료하지 않도록 하기 위한 안전장치다.
 
 내부적으로 다음 작업을 수행한다.
 
