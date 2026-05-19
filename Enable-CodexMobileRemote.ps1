@@ -52,7 +52,7 @@ function Find-CodexExe {
         return $null
     }
 
-    throw "codex.exe was not found. Install and run Codex Desktop first."
+    throw "codex.exe was not found. Install Codex CLI first."
 }
 
 function Find-CodexTerminalCommand {
@@ -118,7 +118,8 @@ function Install-WingetPackage {
     param(
         [string]$WingetExe,
         [string]$PackageId,
-        [string]$Source
+        [string]$Source,
+        [switch]$ContinueOnFailure
     )
 
     $args = @(
@@ -134,23 +135,32 @@ function Install-WingetPackage {
 
     & $WingetExe @args | Out-Host
     if ($LASTEXITCODE -ne 0) {
+        if ($ContinueOnFailure) {
+            Write-WarnLine "winget returned exit code $LASTEXITCODE for package '$PackageId'. Continuing and rechecking installation."
+            return
+        }
         throw "winget install failed for package: $PackageId"
     }
 }
 
-function Ensure-CodexInstalled {
-    $wingetExe = Find-WingetExe
-
-    Write-Step "Checking Codex Desktop package"
-    $desktopPackageId = "9PLM9XGG6VKS"
-    $desktopInstalled = Test-WingetPackageInstalled -WingetExe $wingetExe -PackageId $desktopPackageId -Source "msstore"
-    if (!$desktopInstalled) {
-        Write-Step "Installing Codex Desktop from Microsoft Store"
-        Install-WingetPackage -WingetExe $wingetExe -PackageId $desktopPackageId -Source "msstore"
-    } else {
-        Write-Ok "Codex Desktop package is installed"
+function Resolve-CodexFromKnownPath {
+    $knownCodexExe = Find-CodexExe -AllowMissing
+    if (!$knownCodexExe -or $knownCodexExe -eq "codex.exe") {
+        return $null
     }
 
+    $knownCodexDir = Split-Path -Parent $knownCodexExe
+    $env:PATH = "$knownCodexDir;$env:PATH"
+
+    $terminalCodexExe = Find-CodexTerminalCommand -AllowMissing
+    if ($terminalCodexExe) {
+        return $terminalCodexExe
+    }
+
+    return $knownCodexExe
+}
+
+function Ensure-CodexInstalled {
     Write-Step "Checking codex.exe in terminal"
     $terminalCodexExe = Find-CodexTerminalCommand -AllowMissing
     if ($terminalCodexExe) {
@@ -158,15 +168,17 @@ function Ensure-CodexInstalled {
         return $terminalCodexExe
     }
 
-    Write-WarnLine "Codex Desktop is installed, but codex.exe is not available in this terminal. Installing Codex CLI package."
-    $cliPackageId = "OpenAI.Codex"
-    $cliInstalled = Test-WingetPackageInstalled -WingetExe $wingetExe -PackageId $cliPackageId -Source "winget"
-    if (!$cliInstalled) {
-        Write-Step "Installing Codex CLI"
-        Install-WingetPackage -WingetExe $wingetExe -PackageId $cliPackageId -Source "winget"
-    } else {
-        Write-Ok "Codex CLI package is installed"
+    Write-WarnLine "codex.exe is not available in this terminal. Checking known Codex CLI install paths."
+    $knownCodexExe = Resolve-CodexFromKnownPath
+    if ($knownCodexExe) {
+        Write-Ok "Terminal codex.exe resolved from known install path: $knownCodexExe"
+        return $knownCodexExe
     }
+
+    $wingetExe = Find-WingetExe
+    $cliPackageId = "OpenAI.Codex"
+    Write-Step "Installing Codex CLI"
+    Install-WingetPackage -WingetExe $wingetExe -PackageId $cliPackageId -Source "winget" -ContinueOnFailure
 
     Write-Step "Rechecking codex.exe in terminal"
     $terminalCodexExe = Find-CodexTerminalCommand -AllowMissing
@@ -177,8 +189,10 @@ function Ensure-CodexInstalled {
 
     $fallbackCodexExe = Find-CodexExe -AllowMissing
     if ($fallbackCodexExe) {
-        $fallbackDir = Split-Path -Parent $fallbackCodexExe
-        $env:PATH = "$fallbackDir;$env:PATH"
+        if ($fallbackCodexExe -ne "codex.exe") {
+            $fallbackDir = Split-Path -Parent $fallbackCodexExe
+            $env:PATH = "$fallbackDir;$env:PATH"
+        }
         $terminalCodexExe = Find-CodexTerminalCommand -AllowMissing
         if ($terminalCodexExe) {
             Write-Ok "Terminal codex.exe resolved after PATH update: $terminalCodexExe"
@@ -190,7 +204,7 @@ function Ensure-CodexInstalled {
         return $fallbackCodexExe
     }
 
-    throw "Codex installation completed, but codex.exe is still unavailable. Open Codex Desktop once, close it, then rerun this script."
+    throw "Codex CLI installation completed, but codex.exe is still unavailable. Open a new terminal and rerun this script."
 }
 
 function Find-PythonExe {
@@ -338,7 +352,7 @@ function Restart-CodexDesktop {
     Start-Process -FilePath $CodexExe -ArgumentList @("app", "--enable", "remote_control", $workspace) -WindowStyle Hidden
 }
 
-Write-Step "Checking Codex installation"
+Write-Step "Checking Codex CLI installation"
 $codexExe = Ensure-CodexInstalled
 
 Write-Step "Enabling Codex CLI remote_control feature"

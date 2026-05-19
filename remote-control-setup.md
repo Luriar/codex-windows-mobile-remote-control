@@ -136,16 +136,18 @@ Error: codex app-server daemon lifecycle is only supported on Unix platforms
 
 내부적으로 다음 작업을 수행한다.
 
-1. 설치된 `codex.exe`를 찾는다.
-2. Codex Desktop 설치 여부를 확인한다.
-3. Codex Desktop이 없으면 Microsoft Store 패키지 `9PLM9XGG6VKS`를 `winget`으로 설치한다.
-4. 설치 후 터미널에서 `codex.exe --help`가 실제로 실행되는지 확인한다.
-5. 터미널에서 `codex.exe`가 없거나 실행되지 않으면 Codex CLI 패키지 `OpenAI.Codex`를 `winget`으로 설치한다.
-6. 다시 터미널에서 `codex.exe --help`가 실행되는지 확인한다.
-7. `codex features enable remote_control`을 실행한다.
-8. `C:\Users\HP\.codex\config.toml`에 `remote_control = true`를 보장한다.
-9. `C:\Users\HP\.codex\sqlite\codex-dev.db`의 `local_app_server_feature_enablement` 테이블에 `remote_control = 1`을 기록한다.
-10. Codex Desktop을 종료하고 `--enable remote_control` 옵션으로 다시 실행한다.
+1. 터미널에서 `codex.exe --help`가 실제로 실행되는지 확인한다.
+2. 터미널에서 `codex.exe`가 없거나 실행되지 않으면 알려진 Codex CLI 설치 경로를 PATH에 임시 추가한 뒤 다시 확인한다.
+3. 그래도 실행되지 않으면 Codex CLI 패키지 `OpenAI.Codex`를 `winget`으로 설치한다.
+4. 다시 터미널에서 `codex.exe --help`가 실행되는지 확인한다.
+5. `codex features enable remote_control`을 실행한다.
+6. `C:\Users\HP\.codex\config.toml`에 `remote_control = true`를 보장한다.
+7. `C:\Users\HP\.codex\sqlite\codex-dev.db`의 `local_app_server_feature_enablement` 테이블에 `remote_control = 1`을 기록한다.
+8. Codex Desktop을 종료하고 `--enable remote_control` 옵션으로 다시 실행한다.
+
+Codex Desktop 앱 설치 여부는 자동 설치 대상으로 보지 않는다. Desktop 앱은 사용자가 직접 로그인해야 하고, 이 스크립트에 필요한 자동화 전제 조건은 터미널에서 동작하는 `codex.exe` 명령이다.
+
+따라서 사용자는 Codex Desktop 앱을 직접 설치하고 로그인해 둔 상태여야 한다.
 
 진짜 `.exe`가 필요하면 이 `.ps1` 스크립트를 그대로 래핑하면 된다. 단, `.exe`로 포장해도 실제 핵심 동작은 동일하며, 보안 경고가 더 강하게 보일 수 있다.
 
