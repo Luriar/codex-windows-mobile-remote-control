@@ -42,6 +42,9 @@ function Find-CodexExe {
 
     $cmd = Get-Command "codex.exe" -ErrorAction SilentlyContinue
     if ($cmd) {
+        if ($cmd.Source -like "*\WindowsApps\*") {
+            return "codex.exe"
+        }
         return $cmd.Source
     }
 
@@ -50,6 +53,35 @@ function Find-CodexExe {
     }
 
     throw "codex.exe was not found. Install and run Codex Desktop first."
+}
+
+function Find-CodexTerminalCommand {
+    param([switch]$AllowMissing)
+
+    $cmd = Get-Command "codex.exe" -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $candidate = $cmd.Source
+        if ($cmd.Source -like "*\WindowsApps\*") {
+            $candidate = "codex.exe"
+        }
+
+        try {
+            & $candidate --help *> $null
+            if ($LASTEXITCODE -eq 0) {
+                return $candidate
+            }
+        } catch {
+            if (!$AllowMissing) {
+                throw "codex.exe was found in this terminal but failed to run. Install Codex CLI or fix the terminal PATH."
+            }
+        }
+    }
+
+    if ($AllowMissing) {
+        return $null
+    }
+
+    throw "codex.exe is not available in this terminal. Install Codex CLI or restart the terminal after installation."
 }
 
 function Find-WingetExe {
@@ -100,22 +132,16 @@ function Install-WingetPackage {
         $args += @("--source", $Source)
     }
 
-    & $WingetExe @args
+    & $WingetExe @args | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "winget install failed for package: $PackageId"
     }
 }
 
 function Ensure-CodexInstalled {
-    $codexExe = Find-CodexExe -AllowMissing
-    if ($codexExe) {
-        Write-Ok "Codex CLI found: $codexExe"
-        return $codexExe
-    }
-
-    Write-WarnLine "Codex CLI was not found. Checking Codex Desktop installation."
     $wingetExe = Find-WingetExe
 
+    Write-Step "Checking Codex Desktop package"
     $desktopPackageId = "9PLM9XGG6VKS"
     $desktopInstalled = Test-WingetPackageInstalled -WingetExe $wingetExe -PackageId $desktopPackageId -Source "msstore"
     if (!$desktopInstalled) {
@@ -125,13 +151,14 @@ function Ensure-CodexInstalled {
         Write-Ok "Codex Desktop package is installed"
     }
 
-    $codexExe = Find-CodexExe -AllowMissing
-    if ($codexExe) {
-        Write-Ok "Codex CLI found after Desktop check: $codexExe"
-        return $codexExe
+    Write-Step "Checking codex.exe in terminal"
+    $terminalCodexExe = Find-CodexTerminalCommand -AllowMissing
+    if ($terminalCodexExe) {
+        Write-Ok "Terminal codex.exe found: $terminalCodexExe"
+        return $terminalCodexExe
     }
 
-    Write-WarnLine "Codex Desktop is installed, but codex.exe is still missing. Installing Codex CLI package."
+    Write-WarnLine "Codex Desktop is installed, but codex.exe is not available in this terminal. Installing Codex CLI package."
     $cliPackageId = "OpenAI.Codex"
     $cliInstalled = Test-WingetPackageInstalled -WingetExe $wingetExe -PackageId $cliPackageId -Source "winget"
     if (!$cliInstalled) {
@@ -141,16 +168,26 @@ function Ensure-CodexInstalled {
         Write-Ok "Codex CLI package is installed"
     }
 
-    $codexExe = Find-CodexExe -AllowMissing
-    if ($codexExe) {
-        Write-Ok "Codex CLI found after CLI install: $codexExe"
-        return $codexExe
+    Write-Step "Rechecking codex.exe in terminal"
+    $terminalCodexExe = Find-CodexTerminalCommand -AllowMissing
+    if ($terminalCodexExe) {
+        Write-Ok "Terminal codex.exe found after CLI install: $terminalCodexExe"
+        return $terminalCodexExe
     }
 
-    $cmd = Get-Command "codex.exe" -ErrorAction SilentlyContinue
-    if ($cmd) {
-        Write-Ok "Codex CLI found on PATH: $($cmd.Source)"
-        return $cmd.Source
+    $fallbackCodexExe = Find-CodexExe -AllowMissing
+    if ($fallbackCodexExe) {
+        $fallbackDir = Split-Path -Parent $fallbackCodexExe
+        $env:PATH = "$fallbackDir;$env:PATH"
+        $terminalCodexExe = Find-CodexTerminalCommand -AllowMissing
+        if ($terminalCodexExe) {
+            Write-Ok "Terminal codex.exe resolved after PATH update: $terminalCodexExe"
+            return $terminalCodexExe
+        }
+
+        Write-WarnLine "codex.exe is installed at '$fallbackCodexExe', but this terminal cannot run the codex command yet."
+        Write-WarnLine "Continuing with the full executable path. Open a new terminal later to confirm 'codex --help' works."
+        return $fallbackCodexExe
     }
 
     throw "Codex installation completed, but codex.exe is still unavailable. Open Codex Desktop once, close it, then rerun this script."
