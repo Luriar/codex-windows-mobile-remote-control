@@ -137,10 +137,15 @@ Error: codex app-server daemon lifecycle is only supported on Unix platforms
 내부적으로 다음 작업을 수행한다.
 
 1. 설치된 `codex.exe`를 찾는다.
-2. `codex features enable remote_control`을 실행한다.
-3. `C:\Users\HP\.codex\config.toml`에 `remote_control = true`를 보장한다.
-4. `C:\Users\HP\.codex\sqlite\codex-dev.db`의 `local_app_server_feature_enablement` 테이블에 `remote_control = 1`을 기록한다.
-5. Codex Desktop을 종료하고 `--enable remote_control` 옵션으로 다시 실행한다.
+2. `codex.exe`가 없으면 Codex Desktop 설치 여부를 확인한다.
+3. Codex Desktop이 없으면 Microsoft Store 패키지 `9PLM9XGG6VKS`를 `winget`으로 설치한다.
+4. 설치 후 다시 `codex.exe`를 찾는다.
+5. 여전히 `codex.exe`가 없으면 Codex CLI 패키지 `OpenAI.Codex`를 `winget`으로 설치한다.
+6. 다시 `codex.exe`를 확인한다.
+7. `codex features enable remote_control`을 실행한다.
+8. `C:\Users\HP\.codex\config.toml`에 `remote_control = true`를 보장한다.
+9. `C:\Users\HP\.codex\sqlite\codex-dev.db`의 `local_app_server_feature_enablement` 테이블에 `remote_control = 1`을 기록한다.
+10. Codex Desktop을 종료하고 `--enable remote_control` 옵션으로 다시 실행한다.
 
 진짜 `.exe`가 필요하면 이 `.ps1` 스크립트를 그대로 래핑하면 된다. 단, `.exe`로 포장해도 실제 핵심 동작은 동일하며, 보안 경고가 더 강하게 보일 수 있다.
 

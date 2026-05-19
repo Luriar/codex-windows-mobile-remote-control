@@ -22,6 +22,8 @@ function Write-WarnLine {
 }
 
 function Find-CodexExe {
+    param([switch]$AllowMissing)
+
     $roots = @(
         (Join-Path $env:LOCALAPPDATA "OpenAI\Codex\bin"),
         (Join-Path $env:USERPROFILE "AppData\Local\OpenAI\Codex\bin")
@@ -43,7 +45,115 @@ function Find-CodexExe {
         return $cmd.Source
     }
 
+    if ($AllowMissing) {
+        return $null
+    }
+
     throw "codex.exe was not found. Install and run Codex Desktop first."
+}
+
+function Find-WingetExe {
+    $cmd = Get-Command "winget.exe" -ErrorAction SilentlyContinue
+    if ($cmd) {
+        return $cmd.Source
+    }
+
+    $candidate = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+    if (Test-Path -LiteralPath $candidate) {
+        return $candidate
+    }
+
+    throw "winget.exe was not found. Install App Installer from Microsoft Store, then rerun this script."
+}
+
+function Test-WingetPackageInstalled {
+    param(
+        [string]$WingetExe,
+        [string]$PackageId,
+        [string]$Source
+    )
+
+    $args = @("list", "--id", $PackageId, "--exact")
+    if ($Source) {
+        $args += @("--source", $Source)
+    }
+
+    $output = & $WingetExe @args 2>&1
+    return ($LASTEXITCODE -eq 0 -and ($output -join "`n") -match [regex]::Escape($PackageId))
+}
+
+function Install-WingetPackage {
+    param(
+        [string]$WingetExe,
+        [string]$PackageId,
+        [string]$Source
+    )
+
+    $args = @(
+        "install",
+        "--id", $PackageId,
+        "--exact",
+        "--accept-package-agreements",
+        "--accept-source-agreements"
+    )
+    if ($Source) {
+        $args += @("--source", $Source)
+    }
+
+    & $WingetExe @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "winget install failed for package: $PackageId"
+    }
+}
+
+function Ensure-CodexInstalled {
+    $codexExe = Find-CodexExe -AllowMissing
+    if ($codexExe) {
+        Write-Ok "Codex CLI found: $codexExe"
+        return $codexExe
+    }
+
+    Write-WarnLine "Codex CLI was not found. Checking Codex Desktop installation."
+    $wingetExe = Find-WingetExe
+
+    $desktopPackageId = "9PLM9XGG6VKS"
+    $desktopInstalled = Test-WingetPackageInstalled -WingetExe $wingetExe -PackageId $desktopPackageId -Source "msstore"
+    if (!$desktopInstalled) {
+        Write-Step "Installing Codex Desktop from Microsoft Store"
+        Install-WingetPackage -WingetExe $wingetExe -PackageId $desktopPackageId -Source "msstore"
+    } else {
+        Write-Ok "Codex Desktop package is installed"
+    }
+
+    $codexExe = Find-CodexExe -AllowMissing
+    if ($codexExe) {
+        Write-Ok "Codex CLI found after Desktop check: $codexExe"
+        return $codexExe
+    }
+
+    Write-WarnLine "Codex Desktop is installed, but codex.exe is still missing. Installing Codex CLI package."
+    $cliPackageId = "OpenAI.Codex"
+    $cliInstalled = Test-WingetPackageInstalled -WingetExe $wingetExe -PackageId $cliPackageId -Source "winget"
+    if (!$cliInstalled) {
+        Write-Step "Installing Codex CLI"
+        Install-WingetPackage -WingetExe $wingetExe -PackageId $cliPackageId -Source "winget"
+    } else {
+        Write-Ok "Codex CLI package is installed"
+    }
+
+    $codexExe = Find-CodexExe -AllowMissing
+    if ($codexExe) {
+        Write-Ok "Codex CLI found after CLI install: $codexExe"
+        return $codexExe
+    }
+
+    $cmd = Get-Command "codex.exe" -ErrorAction SilentlyContinue
+    if ($cmd) {
+        Write-Ok "Codex CLI found on PATH: $($cmd.Source)"
+        return $cmd.Source
+    }
+
+    throw "Codex installation completed, but codex.exe is still unavailable. Open Codex Desktop once, close it, then rerun this script."
 }
 
 function Find-PythonExe {
@@ -191,9 +301,8 @@ function Restart-CodexDesktop {
     Start-Process -FilePath $CodexExe -ArgumentList @("app", "--enable", "remote_control", $workspace) -WindowStyle Hidden
 }
 
-Write-Step "Finding codex.exe"
-$codexExe = Find-CodexExe
-Write-Ok $codexExe
+Write-Step "Checking Codex installation"
+$codexExe = Ensure-CodexInstalled
 
 Write-Step "Enabling Codex CLI remote_control feature"
 & $codexExe features enable remote_control | Out-Host
