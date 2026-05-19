@@ -26,16 +26,24 @@ function Find-CodexExe {
 
     $roots = @(
         (Join-Path $env:LOCALAPPDATA "OpenAI\Codex\bin"),
-        (Join-Path $env:USERPROFILE "AppData\Local\OpenAI\Codex\bin")
+        (Join-Path $env:USERPROFILE "AppData\Local\OpenAI\Codex\bin"),
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages")
     ) | Select-Object -Unique
+
+    $candidateNames = @(
+        "codex.exe",
+        "codex-x86_64-pc-windows-msvc.exe"
+    )
 
     foreach ($root in $roots) {
         if (Test-Path -LiteralPath $root) {
-            $candidate = Get-ChildItem -LiteralPath $root -Recurse -Filter "codex.exe" -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTime -Descending |
-                Select-Object -First 1
-            if ($candidate) {
-                return $candidate.FullName
+            foreach ($candidateName in $candidateNames) {
+                $candidate = Get-ChildItem -LiteralPath $root -Recurse -Filter $candidateName -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime -Descending |
+                    Select-Object -First 1
+                if ($candidate) {
+                    return $candidate.FullName
+                }
             }
         }
     }
@@ -52,7 +60,7 @@ function Find-CodexExe {
         return $null
     }
 
-    throw "codex.exe was not found. Install Codex CLI first."
+    throw "Codex CLI executable was not found. Install Codex CLI first."
 }
 
 function Find-CodexTerminalCommand {
@@ -204,7 +212,7 @@ function Ensure-CodexInstalled {
         return $fallbackCodexExe
     }
 
-    throw "Codex CLI installation completed, but codex.exe is still unavailable. Open a new terminal and rerun this script."
+    throw "Codex CLI installation completed, but no runnable Codex CLI executable was found. Open a new terminal and rerun this script."
 }
 
 function Find-PythonExe {

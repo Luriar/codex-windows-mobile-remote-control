@@ -138,6 +138,8 @@ Error: codex app-server daemon lifecycle is only supported on Unix platforms
 
 1. 터미널에서 `codex.exe --help`가 실제로 실행되는지 확인한다.
 2. 터미널에서 `codex.exe`가 없거나 실행되지 않으면 알려진 Codex CLI 설치 경로를 PATH에 임시 추가한 뒤 다시 확인한다.
+   - Codex Desktop 경로: `C:\Users\<user>\AppData\Local\OpenAI\Codex\bin\...\codex.exe`
+   - winget portable CLI 경로: `C:\Users\<user>\AppData\Local\Microsoft\WinGet\Packages\OpenAI.Codex_...\codex-x86_64-pc-windows-msvc.exe`
 3. 그래도 실행되지 않으면 Codex CLI 패키지 `OpenAI.Codex`를 `winget`으로 설치한다.
 4. 다시 터미널에서 `codex.exe --help`가 실행되는지 확인한다.
 5. `codex features enable remote_control`을 실행한다.
